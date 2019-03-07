@@ -2,17 +2,21 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
 import ipaddress
+import geoip2.database
 import folium
+import webview
 import os
-from io import BytesIO
-from PIL import Image, ImageTk
+import threading
 
-ctk.set_appearance_mode("Dark")  # Dark mode
-ctk.set_default_color_theme("blue")  # Accent color
+# ----------------- CONFIG ----------------- #
+DATABASE_PATH = "GeoLite2-City.mmdb"
+MAP_FILE = "ip_map.html"
 
-# ----------------- Functions ----------------- #
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+# ----------------- FUNCTIONS ----------------- #
 def validate_ip(ip):
-    """Check if the input is a valid IP address"""
     try:
         ipaddress.ip_address(ip)
         return True
@@ -20,7 +24,6 @@ def validate_ip(ip):
         return False
 
 def lookup_ip():
-    """Lookup IP information offline"""
     ip = ip_entry.get().strip()
     if not ip:
         messagebox.showerror("Error", "Please enter an IP address.")
@@ -29,46 +32,57 @@ def lookup_ip():
         messagebox.showerror("Error", "Invalid IP address format.")
         return
 
-    # Offline info
-    country_var.set("N/A")
-    region_var.set("N/A")
-    city_var.set("N/A")
-    postal_var.set("N/A")
-    latitude_var.set("0")
-    longitude_var.set("0")
+    try:
+        reader = geoip2.database.Reader(DATABASE_PATH)
+        response = reader.city(ip)
+        reader.close()
 
-    update_map(0, 0, ip)
+        country_var.set(response.country.name or "N/A")
+        region_var.set(response.subdivisions.most_specific.name or "N/A")
+        city_var.set(response.city.name or "N/A")
+        postal_var.set(response.postal.code or "N/A")
+        latitude_var.set(response.location.latitude or 0)
+        longitude_var.set(response.location.longitude or 0)
+
+        update_map(response.location.latitude, response.location.longitude, ip)
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
 
 def detect_my_ip():
-    """Detect local IP (offline)"""
-    # We can only detect private IP offline
     import socket
-    try:
-        hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
-        ip_entry.delete(0, "end")
-        ip_entry.insert(0, local_ip)
-        lookup_ip()
-    except:
-        messagebox.showerror("Error", "Unable to detect local IP.")
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    ip_entry.delete(0, "end")
+    ip_entry.insert(0, local_ip)
+    lookup_ip()
 
 def update_map(lat, lon, ip):
-    """Generate offline map centered at coordinates"""
-    m = folium.Map(location=[lat, lon], zoom_start=2)
-    folium.Marker([lat, lon], tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}", popup=f"IP: {ip}").add_to(m)
+    if lat is None or lon is None:
+        messagebox.showinfo("Map", "No location data available for this IP.")
+        return
 
-    # Save map as HTML
-    map_path = "map.html"
-    m.save(map_path)
+    # Generate folium map
+    m = folium.Map(location=[lat, lon], zoom_start=8)
+    folium.Marker(
+        [lat, lon],
+        tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}",
+        popup=f"IP: {ip}"
+    ).add_to(m)
+    m.save(MAP_FILE)
 
-    # Render static image from HTML using PIL placeholder
-    # Fully offline, cannot render interactive map without browser engine
-    map_label.configure(text=f"Map centered at ({lat},{lon})\nInteractive map requires browser", image="", width=450, height=300)
+    # Open map in PyWebview inside a new thread
+    threading.Thread(target=open_map_window, daemon=True).start()
+
+def open_map_window():
+    # PyWebview window (fully offline)
+    webview.create_window("IP Map", os.path.abspath(MAP_FILE))
+    webview.start(gui='tk')  # Uses Tkinter as backend
 
 # ----------------- GUI ----------------- #
 root = ctk.CTk()
-root.title("Offline AI-Style IP Tracker")
-root.geometry("500x600")
+root.title("Offline AI IP Tracker")
+root.geometry("500x500")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -107,8 +121,7 @@ for label, var in fields:
     ctk.CTkEntry(frame, textvariable=var, state="readonly", width=250).grid(row=row_index, column=1, columnspan=2, padx=5, pady=5)
     row_index += 1
 
-# Map display placeholder
-map_label = ctk.CTkLabel(frame, text="Map will appear here", width=450, height=300)
-map_label.grid(row=row_index, column=0, columnspan=3, pady=15)
+# Info Label
+ctk.CTkLabel(frame, text="Interactive map will open in a new window.", text_color="gray").grid(row=row_index, column=0, columnspan=3, pady=10)
 
 root.mainloop()
