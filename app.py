@@ -3,10 +3,8 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-from PIL import Image, ImageTk
 import os
-import io
-import base64
+from tkhtmlview import HTMLLabel
 
 # ----------------- CONFIG ----------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -59,7 +57,7 @@ def detect_my_ip():
 
 def update_map(lat, lon, ip):
     if lat is None or lon is None:
-        messagebox.showinfo("Map", "No location data available for this IP.")
+        html_map_label.set_html("<p>No location data available for this IP.</p>")
         return
 
     # Create Folium map
@@ -69,28 +67,18 @@ def update_map(lat, lon, ip):
         tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}",
         popup=f"IP: {ip}"
     ).add_to(m)
-
-    # Save HTML map
     m.save(MAP_FILE)
 
-    # Convert map to PNG image for embedding in Tkinter
-    try:
-        import imgkit
-        img_file = "map.png"
-        imgkit.from_file(MAP_FILE, img_file, options={"width": "450", "height": "300"})
-        img = Image.open(img_file)
-        img = img.resize((450, 300))
-        img_tk = ImageTk.PhotoImage(img)
-        map_label.configure(image=img_tk)
-        map_label.image = img_tk
-    except Exception as e:
-        map_label.configure(text="Map preview unavailable.\nInstall imgkit + wkhtmltopdf", image="")
-        print("Map image error:", e)
+    # Read HTML content
+    with open(MAP_FILE, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    html_map_label.set_html(html_content)
 
 # ----------------- GUI ----------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("500x600")
+root.geometry("600x700")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -129,8 +117,8 @@ for label, var in fields:
     ctk.CTkEntry(frame, textvariable=var, state="readonly", width=250).grid(row=row_index, column=1, columnspan=2, padx=5, pady=5)
     row_index += 1
 
-# Map Label (embedded map)
-map_label = ctk.CTkLabel(frame, text="Map preview will appear here", width=450, height=300)
-map_label.grid(row=row_index, column=0, columnspan=3, pady=15)
+# Embedded HTML map
+html_map_label = HTMLLabel(frame, html="<p>Map preview will appear here</p>", width=550, height=350)
+html_map_label.grid(row=row_index, column=0, columnspan=3, pady=15)
 
 root.mainloop()
