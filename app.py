@@ -3,8 +3,10 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-import os
 from tkhtmlview import HTMLLabel
+import threading
+import time
+import os
 
 # ----------------- CONFIG ----------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -21,7 +23,16 @@ def validate_ip(ip):
     except ValueError:
         return False
 
-def lookup_ip():
+def animate_field_update(field_var, value):
+    """Brief highlight animation for updated fields."""
+    field_var.set("")  # Clear field
+    for i in range(3):
+        field_var.set(value[:i])  # Show partial text
+        time.sleep(0.05)
+    field_var.set(value)
+
+def lookup_ip_thread():
+    """Threaded IP lookup to avoid blocking UI."""
     ip = ip_entry.get().strip()
     if not ip:
         messagebox.showerror("Error", "Please enter an IP address.")
@@ -30,22 +41,33 @@ def lookup_ip():
         messagebox.showerror("Error", "Invalid IP address format.")
         return
 
+    # Show loading
+    loading_label.configure(text="Looking up IP...")
+    time.sleep(0.1)  # Small delay for animation
+
     try:
         reader = geoip2.database.Reader(DATABASE_PATH)
         response = reader.city(ip)
         reader.close()
 
-        country_var.set(response.country.name or "N/A")
-        region_var.set(response.subdivisions.most_specific.name or "N/A")
-        city_var.set(response.city.name or "N/A")
-        postal_var.set(response.postal.code or "N/A")
-        latitude_var.set(response.location.latitude or 0)
-        longitude_var.set(response.location.longitude or 0)
+        # Animate field updates
+        threading.Thread(target=animate_field_update, args=(country_var, response.country.name or "N/A"), daemon=True).start()
+        threading.Thread(target=animate_field_update, args=(region_var, response.subdivisions.most_specific.name or "N/A"), daemon=True).start()
+        threading.Thread(target=animate_field_update, args=(city_var, response.city.name or "N/A"), daemon=True).start()
+        threading.Thread(target=animate_field_update, args=(postal_var, response.postal.code or "N/A"), daemon=True).start()
+        threading.Thread(target=animate_field_update, args=(latitude_var, str(response.location.latitude or 0)), daemon=True).start()
+        threading.Thread(target=animate_field_update, args=(longitude_var, str(response.location.longitude or 0)), daemon=True).start()
 
+        # Update map with fade effect
         update_map(response.location.latitude, response.location.longitude, ip)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
+    finally:
+        loading_label.configure(text="")  # Remove loading
+
+def lookup_ip():
+    threading.Thread(target=lookup_ip_thread, daemon=True).start()
 
 def detect_my_ip():
     import socket
@@ -56,29 +78,26 @@ def detect_my_ip():
     lookup_ip()
 
 def update_map(lat, lon, ip):
-    if lat is None or lon is None:
-        html_map_label.set_html("<p>No location data available for this IP.</p>")
-        return
+    """Update map with fade-out/fade-in animation."""
+    # Fade out (simulate by clearing HTML content)
+    html_map_label.set_html("<p>Updating map...</p>")
 
-    # Create Folium map
     m = folium.Map(location=[lat, lon], zoom_start=8)
-    folium.Marker(
-        [lat, lon],
-        tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}",
-        popup=f"IP: {ip}"
-    ).add_to(m)
+    folium.Marker([lat, lon], tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    # Read HTML content
+    # Small delay for smooth transition
+    time.sleep(0.3)
+
+    # Load new map
     with open(MAP_FILE, 'r', encoding='utf-8') as f:
         html_content = f.read()
-
     html_map_label.set_html(html_content)
 
 # ----------------- GUI ----------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("600x700")
+root.geometry("600x750")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -88,11 +107,16 @@ ctk.CTkLabel(frame, text="IP Address:").grid(row=0, column=0, sticky="w")
 ip_entry = ctk.CTkEntry(frame, width=200)
 ip_entry.grid(row=0, column=1, padx=5, pady=5)
 
+# Animated Buttons (hover effect)
+lookup_btn = ctk.CTkButton(frame, text="Lookup", command=lookup_ip)
+lookup_btn.grid(row=1, column=1, pady=10)
+
 detect_btn = ctk.CTkButton(frame, text="Detect My IP", command=detect_my_ip)
 detect_btn.grid(row=0, column=2, padx=5)
 
-lookup_btn = ctk.CTkButton(frame, text="Lookup", command=lookup_ip)
-lookup_btn.grid(row=1, column=1, pady=10)
+# Loading label
+loading_label = ctk.CTkLabel(frame, text="", text_color="orange")
+loading_label.grid(row=1, column=0, columnspan=3, pady=5)
 
 # Output fields
 country_var = ctk.StringVar()
