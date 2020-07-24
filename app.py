@@ -12,8 +12,8 @@ import os
 DATABASE_PATH = "GeoLite2-City.mmdb"
 MAP_FILE = "ip_map.html"
 
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
+ctk.set_appearance_mode("Dark")  # Dark mode
+ctk.set_default_color_theme("dark-blue")  # Modern theme
 
 # ----------------- FUNCTIONS ----------------- #
 def validate_ip(ip):
@@ -27,7 +27,7 @@ def animate_field_update(field_var, value):
     """Brief highlight animation for updated fields."""
     field_var.set("")  # Clear field
     for i in range(3):
-        field_var.set(value[:i])  # Show partial text
+        field_var.set(value[:i])  # Partial text for effect
         time.sleep(0.05)
     field_var.set(value)
 
@@ -41,9 +41,8 @@ def lookup_ip_thread():
         messagebox.showerror("Error", "Invalid IP address format.")
         return
 
-    # Show loading
     loading_label.configure(text="Looking up IP...")
-    time.sleep(0.1)  # Small delay for animation
+    time.sleep(0.05)  # Slight delay for animation
 
     try:
         reader = geoip2.database.Reader(DATABASE_PATH)
@@ -58,13 +57,13 @@ def lookup_ip_thread():
         threading.Thread(target=animate_field_update, args=(latitude_var, str(response.location.latitude or 0)), daemon=True).start()
         threading.Thread(target=animate_field_update, args=(longitude_var, str(response.location.longitude or 0)), daemon=True).start()
 
-        # Update map with fade effect
+        # Update map with fade
         update_map(response.location.latitude, response.location.longitude, ip)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
     finally:
-        loading_label.configure(text="")  # Remove loading
+        loading_label.configure(text="")
 
 def lookup_ip():
     threading.Thread(target=lookup_ip_thread, daemon=True).start()
@@ -78,18 +77,12 @@ def detect_my_ip():
     lookup_ip()
 
 def update_map(lat, lon, ip):
-    """Update map with fade-out/fade-in animation."""
-    # Fade out (simulate by clearing HTML content)
-    html_map_label.set_html("<p>Updating map...</p>")
-
+    """Update map with fade effect."""
+    html_map_label.set_html("<p>Updating map...</p>")  # fade-out effect
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
-
-    # Small delay for smooth transition
-    time.sleep(0.3)
-
-    # Load new map
+    time.sleep(0.2)  # small transition delay
     with open(MAP_FILE, 'r', encoding='utf-8') as f:
         html_content = f.read()
     html_map_label.set_html(html_content)
@@ -97,28 +90,34 @@ def update_map(lat, lon, ip):
 # ----------------- GUI ----------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("600x750")
+root.geometry("620x750")
 
+# Main frame
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-# IP Entry
-ctk.CTkLabel(frame, text="IP Address:").grid(row=0, column=0, sticky="w")
-ip_entry = ctk.CTkEntry(frame, width=200)
-ip_entry.grid(row=0, column=1, padx=5, pady=5)
+# Top row: IP input + buttons
+ip_frame = ctk.CTkFrame(frame, corner_radius=10)
+ip_frame.pack(fill="x", pady=(10, 15), padx=10)
 
-# Animated Buttons (hover effect)
-lookup_btn = ctk.CTkButton(frame, text="Lookup", command=lookup_ip)
-lookup_btn.grid(row=1, column=1, pady=10)
+ctk.CTkLabel(ip_frame, text="IP Address:").pack(side="left", padx=(10,5))
+ip_entry = ctk.CTkEntry(ip_frame, width=200)
+ip_entry.pack(side="left", padx=(0,10))
 
-detect_btn = ctk.CTkButton(frame, text="Detect My IP", command=detect_my_ip)
-detect_btn.grid(row=0, column=2, padx=5)
+detect_btn = ctk.CTkButton(ip_frame, text="Detect My IP", command=detect_my_ip, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
+detect_btn.pack(side="left", padx=5)
+
+lookup_btn = ctk.CTkButton(ip_frame, text="Check IP", command=lookup_ip, width=100, fg_color="#1f6aa5", hover_color="#3a86ff")
+lookup_btn.pack(side="left", padx=5)
 
 # Loading label
 loading_label = ctk.CTkLabel(frame, text="", text_color="orange")
-loading_label.grid(row=1, column=0, columnspan=3, pady=5)
+loading_label.pack(pady=5)
 
-# Output fields
+# Output fields frame
+output_frame = ctk.CTkFrame(frame, corner_radius=10)
+output_frame.pack(fill="x", padx=10, pady=10)
+
 country_var = ctk.StringVar()
 region_var = ctk.StringVar()
 city_var = ctk.StringVar()
@@ -135,14 +134,14 @@ fields = [
     ("Longitude", longitude_var),
 ]
 
-row_index = 2
 for label, var in fields:
-    ctk.CTkLabel(frame, text=f"{label}:").grid(row=row_index, column=0, sticky="w", pady=5)
-    ctk.CTkEntry(frame, textvariable=var, state="readonly", width=250).grid(row=row_index, column=1, columnspan=2, padx=5, pady=5)
-    row_index += 1
+    row = ctk.CTkFrame(output_frame)
+    row.pack(fill="x", pady=3, padx=5)
+    ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
+    ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
 # Embedded HTML map
-html_map_label = HTMLLabel(frame, html="<p>Map preview will appear here</p>", width=550, height=350)
-html_map_label.grid(row=row_index, column=0, columnspan=3, pady=15)
+html_map_label = HTMLLabel(frame, html="<p>Map preview will appear here</p>", width=580, height=350)
+html_map_label.pack(pady=15)
 
 root.mainloop()
