@@ -24,24 +24,20 @@ def validate_ip(ip):
         return False
 
 def animate_field_update(field_var, value):
-    field_var.set("")  # clear first
+    field_var.set("")
     for i in range(3):
         field_var.set(value[:i])
         time.sleep(0.05)
     field_var.set(value)
 
 def update_map(lat, lon, ip):
-    """Generate Folium map and save as HTML"""
+    """Generate Folium map and update pywebview window."""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    # Load or reload pywebview window
-    if not hasattr(update_map, "webview_window"):
-        # First time: create webview window in separate thread
-        threading.Thread(target=lambda: webview.start(gui='tk', debug=False, http_server=True, func=lambda: setattr(update_map, "webview_window", webview.create_window("IP Map", os.path.abspath(MAP_FILE)))), daemon=True).start()
-    else:
-        # Subsequent updates: reload the window
+    # Reload map in webview
+    if hasattr(update_map, "webview_window"):
         update_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
 
 def lookup_ip_thread():
@@ -59,13 +55,11 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
-        # Animate fields
         for var, val in zip([country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
                             [response.country.name, response.subdivisions.most_specific.name, response.city.name,
                              response.postal.code, str(response.location.latitude), str(response.location.longitude)]):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
-        # Update map
         update_map(response.location.latitude, response.location.longitude, ip)
 
     except Exception as e:
@@ -143,4 +137,10 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-root.mainloop()
+# ----------------- PyWebview Embedded Map ----------------- #
+update_map.webview_window = webview.create_window(
+    "IP Map", os.path.abspath(MAP_FILE), width=600, height=350, resizable=True, frameless=False
+)
+
+# Start Tkinter and Webview together (pywebview handles main loop)
+webview.start(gui='tk', debug=False)
