@@ -3,19 +3,22 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-import webview
+from PIL import Image, ImageTk
 import threading
-import os
 import time
+import os
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
-# ----------------- CONFIG ----------------- #
+# ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
-MAP_FILE = "ip_map.html"
+MAP_HTML = "ip_map.html"
+MAP_PNG = "ip_map.png"
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
-# ----------------- FUNCTIONS ----------------- #
+# ---------------- FUNCTIONS ---------------- #
 def validate_ip(ip):
     try:
         ipaddress.ip_address(ip)
@@ -30,15 +33,29 @@ def animate_field_update(field_var, value):
         time.sleep(0.05)
     field_var.set(value)
 
-def update_map(lat, lon, ip):
-    """Generate Folium map and update pywebview window."""
+def generate_map_image(lat, lon, ip):
+    # Create folium map
     m = folium.Map(location=[lat, lon], zoom_start=8)
-    folium.Marker([lat, lon], tooltip=f"IP: {ip}\nLat:{lat} Lon:{lon}", popup=f"IP: {ip}").add_to(m)
-    m.save(MAP_FILE)
+    folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
+    m.save(MAP_HTML)
 
-    # Reload map in webview
-    if hasattr(update_map, "webview_window"):
-        update_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
+    # Convert HTML to PNG using headless Chrome
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=650,400")
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get("file:///" + os.path.abspath(MAP_HTML))
+    time.sleep(1)  # allow map to render
+    driver.save_screenshot(MAP_PNG)
+    driver.quit()
+
+    # Load PNG into Tkinter
+    img = Image.open(MAP_PNG)
+    img = img.resize((600, 350), Image.Resampling.LANCZOS)
+    photo = ImageTk.PhotoImage(img)
+    map_label.configure(image=photo)
+    map_label.image = photo  # keep reference
 
 def lookup_ip_thread():
     ip = ip_entry.get().strip()
@@ -55,12 +72,16 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
-        for var, val in zip([country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
-                            [response.country.name, response.subdivisions.most_specific.name, response.city.name,
-                             response.postal.code, str(response.location.latitude), str(response.location.longitude)]):
+        # Animate fields
+        for var, val in zip(
+            [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
+            [response.country.name, response.subdivisions.most_specific.name, response.city.name,
+             response.postal.code, str(response.location.latitude), str(response.location.longitude)]
+        ):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
-        update_map(response.location.latitude, response.location.longitude, ip)
+        # Update map image
+        threading.Thread(target=generate_map_image, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
@@ -82,10 +103,10 @@ def toggle_theme():
     current = ctk.get_appearance_mode()
     ctk.set_appearance_mode("Light" if current=="Dark" else "Dark")
 
-# ----------------- GUI ----------------- #
+# ---------------- GUI ---------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("650x750")
+root.geometry("650x800")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -137,10 +158,8 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-# ----------------- PyWebview Embedded Map ----------------- #
-update_map.webview_window = webview.create_window(
-    "IP Map", os.path.abspath(MAP_FILE), width=600, height=350, resizable=True, frameless=False
-)
+# Map image
+map_label = ctk.CTkLabel(frame)
+map_label.pack(pady=15)
 
-# Start Tkinter and Webview together (pywebview handles main loop)
-webview.start(gui='tk', debug=False)
+root.mainloop()
