@@ -3,17 +3,15 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-from PIL import Image, ImageTk
+import os
 import threading
 import time
-import os
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from cefpython3 import cefpython as cef
+import sys
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
 MAP_HTML = "ip_map.html"
-MAP_PNG = "ip_map.png"
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -33,29 +31,15 @@ def animate_field_update(field_var, value):
         time.sleep(0.05)
     field_var.set(value)
 
-def generate_map_image(lat, lon, ip):
-    # Create folium map
+def generate_map(lat, lon, ip):
+    """Generate Folium map HTML"""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_HTML)
 
-    # Convert HTML to PNG using headless Chrome
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=650,400")
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.get("file:///" + os.path.abspath(MAP_HTML))
-    time.sleep(1)  # allow map to render
-    driver.save_screenshot(MAP_PNG)
-    driver.quit()
-
-    # Load PNG into Tkinter
-    img = Image.open(MAP_PNG)
-    img = img.resize((600, 350), Image.Resampling.LANCZOS)
-    photo = ImageTk.PhotoImage(img)
-    map_label.configure(image=photo)
-    map_label.image = photo  # keep reference
+    # Reload map in CEF browser
+    if hasattr(generate_map, "browser_frame"):
+        generate_map.browser_frame.LoadUrl("file:///" + os.path.abspath(MAP_HTML))
 
 def lookup_ip_thread():
     ip = ip_entry.get().strip()
@@ -72,7 +56,6 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
-        # Animate fields
         for var, val in zip(
             [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
             [response.country.name, response.subdivisions.most_specific.name, response.city.name,
@@ -80,8 +63,8 @@ def lookup_ip_thread():
         ):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
-        # Update map image
-        threading.Thread(target=generate_map_image, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
+        # Update interactive map
+        threading.Thread(target=generate_map, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
@@ -106,7 +89,7 @@ def toggle_theme():
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("650x800")
+root.geometry("700x850")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -158,8 +141,27 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-# Map image
-map_label = ctk.CTkLabel(frame)
-map_label.pack(pady=15)
+# ----------------- Map Frame (CEF) ---------------- #
+map_frame = ctk.CTkFrame(frame, corner_radius=10, width=650, height=400)
+map_frame.pack(pady=15)
+map_frame.pack_propagate(False)
 
+# Initialize CEF
+cef.Initialize()
+
+# Embed CEF browser in map_frame
+window_info = cef.WindowInfo()
+rect = map_frame.winfo_rootx(), map_frame.winfo_rooty(), map_frame.winfo_width(), map_frame.winfo_height()
+window_info.SetAsChild(map_frame.winfo_id(), rect)
+browser = cef.CreateBrowserSync(window_info, url="file:///" + os.path.abspath(MAP_HTML))
+generate_map.browser_frame = browser
+
+# Tkinter main loop with CEF message loop
+def cef_loop():
+    cef.MessageLoopWork()
+    root.after(10, cef_loop)
+
+root.after(10, cef_loop)
 root.mainloop()
+
+cef.Shutdown()
