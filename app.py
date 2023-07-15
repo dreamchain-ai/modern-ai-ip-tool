@@ -32,12 +32,10 @@ def animate_field_update(field_var, value):
     field_var.set(value)
 
 def generate_map(lat, lon, ip):
-    """Generate Folium map HTML"""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    # Reload map in pywebview if already open
     if hasattr(generate_map, "webview_window"):
         generate_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
 
@@ -56,7 +54,6 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
-        # Animate field updates
         for var, val in zip(
             [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
             [response.country.name, response.subdivisions.most_specific.name, response.city.name,
@@ -64,7 +61,6 @@ def lookup_ip_thread():
         ):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
-        # Update interactive map
         threading.Thread(target=generate_map, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
 
     except Exception as e:
@@ -87,16 +83,14 @@ def toggle_theme():
     ctk.set_appearance_mode("Light" if current=="Dark" else "Dark")
 
 def open_map_window():
-    """Open PyWebview window showing the current map"""
     if not os.path.exists(MAP_FILE):
-        # Generate a default map at 0,0
-        generate_map(0, 0, "N/A")
+        generate_map(0,0,"N/A")
     if not hasattr(generate_map, "webview_window"):
         generate_map.webview_window = webview.create_window(
             "IP Map",
             os.path.abspath(MAP_FILE),
-            width=650,
-            height=400,
+            width=700,
+            height=500,
             resizable=True
         )
         webview.start(debug=False)
@@ -105,39 +99,42 @@ def open_map_window():
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
-root.title("Offline AI IP Tracker")
-root.geometry("700x800")
+root.title("Modern AI IP Tracker")
+root.geometry("900x850")
 
-frame = ctk.CTkFrame(root, corner_radius=15)
-frame.pack(fill="both", expand=True, padx=20, pady=20)
+main_frame = ctk.CTkFrame(root, corner_radius=15)
+main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-# Top: IP Entry + buttons
-top_frame = ctk.CTkFrame(frame, corner_radius=10)
-top_frame.pack(fill="x", pady=(10,15), padx=10)
+# ----- Top bar: IP + buttons ----- #
+top_bar1 = ctk.CTkFrame(main_frame, corner_radius=10)
+top_bar1.pack(fill="x", pady=(10,5), padx=10)
 
-ctk.CTkLabel(top_frame, text="IP Address:").pack(side="left", padx=(10,5))
-ip_entry = ctk.CTkEntry(top_frame, width=200)
+ctk.CTkLabel(top_bar1, text="IP Address:").pack(side="left", padx=(10,5))
+ip_entry = ctk.CTkEntry(top_bar1, width=250)
 ip_entry.pack(side="left", padx=(0,10))
 
-detect_btn = ctk.CTkButton(top_frame, text="Detect My IP", command=detect_my_ip, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
+detect_btn = ctk.CTkButton(top_bar1, text="Detect My IP", command=detect_my_ip, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
 detect_btn.pack(side="left", padx=5)
 
-lookup_btn = ctk.CTkButton(top_frame, text="Check IP", command=lookup_ip, width=100, fg_color="#1f6aa5", hover_color="#3a86ff")
+lookup_btn = ctk.CTkButton(top_bar1, text="Check IP", command=lookup_ip, width=100, fg_color="#1f6aa5", hover_color="#3a86ff")
 lookup_btn.pack(side="left", padx=5)
 
-theme_btn = ctk.CTkButton(top_frame, text="Toggle Theme", command=toggle_theme, width=120)
+top_bar2 = ctk.CTkFrame(main_frame, corner_radius=10)
+top_bar2.pack(fill="x", pady=(0,10), padx=10)
+
+theme_btn = ctk.CTkButton(top_bar2, text="Toggle Theme", command=toggle_theme, width=120)
 theme_btn.pack(side="left", padx=5)
 
-map_btn = ctk.CTkButton(top_frame, text="Open Map", command=open_map_window, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
+map_btn = ctk.CTkButton(top_bar2, text="Open Map", command=open_map_window, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
 map_btn.pack(side="left", padx=5)
 
-# Loading label
-loading_label = ctk.CTkLabel(frame, text="", text_color="orange")
+# ----- Loading label ----- #
+loading_label = ctk.CTkLabel(main_frame, text="", text_color="orange")
 loading_label.pack(pady=5)
 
-# Output fields
-output_frame = ctk.CTkFrame(frame, corner_radius=10)
-output_frame.pack(fill="x", padx=10, pady=10)
+# ----- Info panel ----- #
+info_panel = ctk.CTkFrame(main_frame, corner_radius=15, fg_color="#1f1f2e", border_width=1, border_color="#3a86ff")
+info_panel.pack(fill="x", padx=20, pady=15)
 
 country_var = ctk.StringVar()
 region_var = ctk.StringVar()
@@ -156,9 +153,13 @@ fields = [
 ]
 
 for label, var in fields:
-    row = ctk.CTkFrame(output_frame)
-    row.pack(fill="x", pady=3, padx=5)
+    row = ctk.CTkFrame(info_panel, corner_radius=10, fg_color="#2a2a3d")
+    row.pack(fill="x", pady=5, padx=10)
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
+
+# ----- Footer: optional message ----- #
+footer_label = ctk.CTkLabel(main_frame, text="Modern AI Offline IP Tracker", text_color="#3a86ff")
+footer_label.pack(pady=10)
 
 root.mainloop()
