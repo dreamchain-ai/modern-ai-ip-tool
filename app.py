@@ -3,15 +3,15 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-import os
+import webview
 import threading
 import time
-from cefpython3 import cefpython as cef
-import sys
+import os
+import socket
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
-MAP_HTML = "ip_map.html"
+MAP_FILE = "ip_map.html"
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -35,11 +35,11 @@ def generate_map(lat, lon, ip):
     """Generate Folium map HTML"""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
-    m.save(MAP_HTML)
+    m.save(MAP_FILE)
 
-    # Reload map in CEF browser
-    if hasattr(generate_map, "browser_frame"):
-        generate_map.browser_frame.LoadUrl("file:///" + os.path.abspath(MAP_HTML))
+    # Reload map in pywebview if already open
+    if hasattr(generate_map, "webview_window"):
+        generate_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
 
 def lookup_ip_thread():
     ip = ip_entry.get().strip()
@@ -56,6 +56,7 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
+        # Animate field updates
         for var, val in zip(
             [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
             [response.country.name, response.subdivisions.most_specific.name, response.city.name,
@@ -75,7 +76,6 @@ def lookup_ip():
     threading.Thread(target=lookup_ip_thread, daemon=True).start()
 
 def detect_my_ip():
-    import socket
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
     ip_entry.delete(0, "end")
@@ -86,10 +86,27 @@ def toggle_theme():
     current = ctk.get_appearance_mode()
     ctk.set_appearance_mode("Light" if current=="Dark" else "Dark")
 
+def open_map_window():
+    """Open PyWebview window showing the current map"""
+    if not os.path.exists(MAP_FILE):
+        # Generate a default map at 0,0
+        generate_map(0, 0, "N/A")
+    if not hasattr(generate_map, "webview_window"):
+        generate_map.webview_window = webview.create_window(
+            "IP Map",
+            os.path.abspath(MAP_FILE),
+            width=650,
+            height=400,
+            resizable=True
+        )
+        webview.start(debug=False)
+    else:
+        generate_map.webview_window.bring_to_front()
+
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
 root.title("Offline AI IP Tracker")
-root.geometry("700x850")
+root.geometry("700x800")
 
 frame = ctk.CTkFrame(root, corner_radius=15)
 frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -110,6 +127,9 @@ lookup_btn.pack(side="left", padx=5)
 
 theme_btn = ctk.CTkButton(top_frame, text="Toggle Theme", command=toggle_theme, width=120)
 theme_btn.pack(side="left", padx=5)
+
+map_btn = ctk.CTkButton(top_frame, text="Open Map", command=open_map_window, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
+map_btn.pack(side="left", padx=5)
 
 # Loading label
 loading_label = ctk.CTkLabel(frame, text="", text_color="orange")
@@ -141,27 +161,4 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-# ----------------- Map Frame (CEF) ---------------- #
-map_frame = ctk.CTkFrame(frame, corner_radius=10, width=650, height=400)
-map_frame.pack(pady=15)
-map_frame.pack_propagate(False)
-
-# Initialize CEF
-cef.Initialize()
-
-# Embed CEF browser in map_frame
-window_info = cef.WindowInfo()
-rect = map_frame.winfo_rootx(), map_frame.winfo_rooty(), map_frame.winfo_width(), map_frame.winfo_height()
-window_info.SetAsChild(map_frame.winfo_id(), rect)
-browser = cef.CreateBrowserSync(window_info, url="file:///" + os.path.abspath(MAP_HTML))
-generate_map.browser_frame = browser
-
-# Tkinter main loop with CEF message loop
-def cef_loop():
-    cef.MessageLoopWork()
-    root.after(10, cef_loop)
-
-root.after(10, cef_loop)
 root.mainloop()
-
-cef.Shutdown()
