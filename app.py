@@ -84,8 +84,10 @@ def toggle_theme():
 
 def open_map_window():
     if not os.path.exists(MAP_FILE):
-        generate_map(0,0,"N/A")
-    if not hasattr(generate_map, "webview_window"):
+        generate_map(0, 0, "N/A")
+
+    def start_webview():
+        # This starts the window in its own thread
         generate_map.webview_window = webview.create_window(
             "IP Map",
             os.path.abspath(MAP_FILE),
@@ -94,8 +96,13 @@ def open_map_window():
             resizable=True
         )
         webview.start(debug=False)
+
+    # If window does not exist, start it
+    if not hasattr(generate_map, "webview_window"):
+        threading.Thread(target=start_webview, daemon=True).start()
     else:
-        generate_map.webview_window.bring_to_front()
+        # Reload the new map
+        generate_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
