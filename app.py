@@ -32,12 +32,17 @@ def animate_field_update(field_var, value):
     field_var.set(value)
 
 def generate_map(lat, lon, ip):
+    """Generate Folium map HTML"""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    if hasattr(generate_map, "webview_window"):
-        generate_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
+    # Update existing PyWebview window
+    if hasattr(open_map_window, "window"):
+        try:
+            open_map_window.window.load_url("file://" + os.path.abspath(MAP_FILE))
+        except:
+            pass  # ignore if window is closed
 
 def lookup_ip_thread():
     ip = ip_entry.get().strip()
@@ -61,6 +66,7 @@ def lookup_ip_thread():
         ):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
+        # Update the map
         threading.Thread(target=generate_map, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
 
     except Exception as e:
@@ -83,26 +89,26 @@ def toggle_theme():
     ctk.set_appearance_mode("Light" if current=="Dark" else "Dark")
 
 def open_map_window():
+    """Open PyWebview map on the main thread, only once"""
     if not os.path.exists(MAP_FILE):
-        generate_map(0, 0, "N/A")
+        generate_map(0,0,"N/A")
 
-    def start_webview():
-        # This starts the window in its own thread
-        generate_map.webview_window = webview.create_window(
+    if not hasattr(open_map_window, "window"):
+        open_map_window.window = webview.create_window(
             "IP Map",
             os.path.abspath(MAP_FILE),
             width=700,
             height=500,
             resizable=True
         )
-        webview.start(debug=False)
-
-    # If window does not exist, start it
-    if not hasattr(generate_map, "webview_window"):
-        threading.Thread(target=start_webview, daemon=True).start()
+        # Run PyWebview loop in a separate thread without blocking Tkinter
+        threading.Thread(target=lambda: webview.start(debug=False), daemon=True).start()
     else:
-        # Reload the new map
-        generate_map.webview_window.load_url("file://" + os.path.abspath(MAP_FILE))
+        # Reload map if window already exists
+        try:
+            open_map_window.window.load_url("file://" + os.path.abspath(MAP_FILE))
+        except:
+            pass
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
@@ -165,7 +171,7 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-# ----- Footer: optional message ----- #
+# ----- Footer ----- #
 footer_label = ctk.CTkLabel(main_frame, text="Modern AI Offline IP Tracker", text_color="#3a86ff")
 footer_label.pack(pady=10)
 
