@@ -3,11 +3,11 @@ from tkinter import messagebox
 import ipaddress
 import geoip2.database
 import folium
-import webview
+import socket
 import threading
 import time
 import os
-import socket
+from multiprocessing import Process
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -37,13 +37,6 @@ def generate_map(lat, lon, ip):
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    # Update existing PyWebview window
-    if hasattr(open_map_window, "window"):
-        try:
-            open_map_window.window.load_url("file://" + os.path.abspath(MAP_FILE))
-        except:
-            pass  # ignore if window is closed
-
 def lookup_ip_thread():
     ip = ip_entry.get().strip()
     if not ip:
@@ -66,8 +59,8 @@ def lookup_ip_thread():
         ):
             threading.Thread(target=animate_field_update, args=(var, val or "N/A"), daemon=True).start()
 
-        # Update the map
-        threading.Thread(target=generate_map, args=(response.location.latitude, response.location.longitude, ip), daemon=True).start()
+        # Update map HTML for the new IP
+        generate_map(response.location.latitude, response.location.longitude, ip)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
@@ -88,27 +81,27 @@ def toggle_theme():
     current = ctk.get_appearance_mode()
     ctk.set_appearance_mode("Light" if current=="Dark" else "Dark")
 
-def open_map_window():
-    """Open PyWebview map on the main thread, only once"""
-    if not os.path.exists(MAP_FILE):
-        generate_map(0,0,"N/A")
+# ---------------- MAP PROCESS ---------------- #
+def run_webview():
+    """Runs PyWebview in a separate process"""
+    import webview
+    webview.create_window("IP Map", os.path.abspath(MAP_FILE), width=700, height=500, resizable=True)
+    webview.start(debug=False)
 
-    if not hasattr(open_map_window, "window"):
-        open_map_window.window = webview.create_window(
-            "IP Map",
-            os.path.abspath(MAP_FILE),
-            width=700,
-            height=500,
-            resizable=True
-        )
-        # Run PyWebview loop in a separate thread without blocking Tkinter
-        threading.Thread(target=lambda: webview.start(debug=False), daemon=True).start()
+map_process = None
+
+def open_map_window():
+    global map_process
+    if not os.path.exists(MAP_FILE):
+        generate_map(0, 0, "N/A")
+
+    # Start new PyWebview process if not running
+    if map_process is None or not map_process.is_alive():
+        map_process = Process(target=run_webview)
+        map_process.start()
     else:
-        # Reload map if window already exists
-        try:
-            open_map_window.window.load_url("file://" + os.path.abspath(MAP_FILE))
-        except:
-            pass
+        # Just overwrite MAP_FILE; the PyWebview process can be restarted manually if needed
+        generate_map(0, 0, "N/A")  # optional: refresh map
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
