@@ -5,10 +5,10 @@ import geoip2.database
 import folium
 import socket
 import threading
-import time
 import os
 from multiprocessing import Process
 import requests
+import time
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -42,18 +42,37 @@ def generate_map(lat, lon, ip):
 
 # ---------------- MAP PROCESS ---------------- #
 map_process = None
+map_window = None  # Reference to the PyWebview window
 
 def run_webview():
+    """Start PyWebview and keep reference to window"""
     import webview
-    webview.create_window("IP Map", os.path.abspath(MAP_FILE), width=700, height=500, resizable=True)
+    global map_window
+    map_window = webview.create_window("IP Map", os.path.abspath(MAP_FILE), width=700, height=500, resizable=True)
     webview.start(debug=False)
 
 def open_map_window(lat=0, lon=0, ip="N/A"):
-    global map_process
+    """Generate or refresh map and update webview window if running"""
+    global map_process, map_window
+
+    # Generate latest map HTML
     generate_map(lat, lon, ip)
+
+    # Start PyWebview if not running
     if map_process is None or not map_process.is_alive():
         map_process = Process(target=run_webview)
         map_process.start()
+    else:
+        # Refresh existing window
+        if map_window:
+            try:
+                import webview
+                map_window.load_url(os.path.abspath(MAP_FILE))
+            except Exception:
+                # Fallback if refresh fails
+                map_process.terminate()
+                map_process = Process(target=run_webview)
+                map_process.start()
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -96,11 +115,9 @@ def detect_my_ip():
     
     def detect_thread():
         try:
-            # Try public IP
             try:
                 ip = requests.get("https://api.ipify.org", timeout=5).text.strip()
             except requests.RequestException:
-                # fallback to local network IP
                 hostname = socket.gethostname()
                 ip = socket.gethostbyname(hostname)
 
@@ -110,9 +127,8 @@ def detect_my_ip():
                 ip_entry.insert(0, ip)
             root.after(0, update_entry)
 
-            # Lookup IP info and update GUI + map
+            # Lookup IP info
             lookup_ip_thread()
-
         finally:
             root.after(0, lambda: loading_label.configure(text=""))
 
