@@ -6,9 +6,7 @@ import folium
 import socket
 import threading
 import os
-from multiprocessing import Process
 import requests
-import time
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -40,39 +38,35 @@ def generate_map(lat, lon, ip):
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-# ---------------- MAP PROCESS ---------------- #
-map_process = None
-map_window = None  # Reference to the PyWebview window
+# ---------------- MAP THREAD ---------------- #
+map_window = None
+map_thread = None
 
-def run_webview():
-    """Start PyWebview and keep reference to window"""
+def run_webview_thread():
     import webview
     global map_window
     map_window = webview.create_window("IP Map", os.path.abspath(MAP_FILE), width=700, height=500, resizable=True)
     webview.start(debug=False)
 
 def open_map_window(lat=0, lon=0, ip="N/A"):
-    """Generate or refresh map and update webview window if running"""
-    global map_process, map_window
-
-    # Generate latest map HTML
+    """Generate or refresh map in a single PyWebview window"""
+    global map_window, map_thread
     generate_map(lat, lon, ip)
 
-    # Start PyWebview if not running
-    if map_process is None or not map_process.is_alive():
-        map_process = Process(target=run_webview)
-        map_process.start()
+    if map_window is None:
+        # Start PyWebview in a thread
+        map_thread = threading.Thread(target=run_webview_thread, daemon=True)
+        map_thread.start()
     else:
-        # Refresh existing window
-        if map_window:
-            try:
-                import webview
-                map_window.load_url(os.path.abspath(MAP_FILE))
-            except Exception:
-                # Fallback if refresh fails
-                map_process.terminate()
-                map_process = Process(target=run_webview)
-                map_process.start()
+        # Refresh existing map window
+        try:
+            import webview
+            map_window.load_url(os.path.abspath(MAP_FILE))
+        except Exception:
+            # Fallback if refresh fails
+            map_window = None
+            map_thread = threading.Thread(target=run_webview_thread, daemon=True)
+            map_thread.start()
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -207,9 +201,8 @@ footer_label.pack(pady=10)
 
 # ---------- Handle Close ---------- #
 def on_close():
-    global map_process
-    if map_process and map_process.is_alive():
-        map_process.terminate()
+    global map_window
+    # webview thread closes automatically on main program exit
     root.destroy()
 
 root.protocol("WM_DELETE_WINDOW", on_close)
