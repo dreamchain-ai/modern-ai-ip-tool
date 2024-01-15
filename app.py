@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox
+from tkinterweb import HtmlFrame  # <- embedded browser
 import ipaddress
 import geoip2.database
 import folium
@@ -38,35 +39,8 @@ def generate_map(lat, lon, ip):
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-# ---------------- MAP THREAD ---------------- #
-map_window = None
-map_thread = None
-
-def run_webview_thread():
-    import webview
-    global map_window
-    map_window = webview.create_window("IP Map", os.path.abspath(MAP_FILE), width=700, height=500, resizable=True)
-    webview.start(debug=False)
-
-def open_map_window(lat=0, lon=0, ip="N/A"):
-    """Generate or refresh map in a single PyWebview window"""
-    global map_window, map_thread
-    generate_map(lat, lon, ip)
-
-    if map_window is None:
-        # Start PyWebview in a thread
-        map_thread = threading.Thread(target=run_webview_thread, daemon=True)
-        map_thread.start()
-    else:
-        # Refresh existing map window
-        try:
-            import webview
-            map_window.load_url(os.path.abspath(MAP_FILE))
-        except Exception:
-            # Fallback if refresh fails
-            map_window = None
-            map_thread = threading.Thread(target=run_webview_thread, daemon=True)
-            map_thread.start()
+    # Load updated map in embedded browser
+    map_frame.load_file(MAP_FILE)
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -92,8 +66,8 @@ def lookup_ip_thread():
         ):
             animate_field_update(var, val or "N/A")
 
-        # Refresh map
-        open_map_window(response.location.latitude, response.location.longitude, ip)
+        # Refresh map inside GUI
+        generate_map(response.location.latitude, response.location.longitude, ip)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
@@ -136,7 +110,7 @@ def toggle_theme():
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
 root.title("Modern AI IP Tracker")
-root.geometry("900x850")
+root.geometry("1000x900")
 
 # ---------- Main Frame ---------- #
 main_frame = ctk.CTkFrame(root, corner_radius=15)
@@ -161,9 +135,6 @@ top_bar2.pack(fill="x", pady=(0,10), padx=10)
 
 theme_btn = ctk.CTkButton(top_bar2, text="Toggle Theme", command=toggle_theme, width=120)
 theme_btn.pack(side="left", padx=5)
-
-map_btn = ctk.CTkButton(top_bar2, text="Open Map", command=open_map_window, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
-map_btn.pack(side="left", padx=5)
 
 # ---------- Loading Label ---------- #
 loading_label = ctk.CTkLabel(main_frame, text="", text_color="orange")
@@ -195,17 +166,16 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
+# ---------- Map Panel ---------- #
+map_panel = ctk.CTkFrame(main_frame, corner_radius=10)
+map_panel.pack(fill="both", expand=True, padx=20, pady=15)
+
+map_frame = HtmlFrame(map_panel, horizontal_scrollbar="auto")
+map_frame.pack(fill="both", expand=True)
+
 # ---------- Footer ---------- #
 footer_label = ctk.CTkLabel(main_frame, text="Modern AI Offline IP Tracker", text_color="#3a86ff")
 footer_label.pack(pady=10)
-
-# ---------- Handle Close ---------- #
-def on_close():
-    global map_window
-    # webview thread closes automatically on main program exit
-    root.destroy()
-
-root.protocol("WM_DELETE_WINDOW", on_close)
 
 # ---------- Start GUI ---------- #
 root.mainloop()
