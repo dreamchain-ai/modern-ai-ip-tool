@@ -34,13 +34,13 @@ def animate_field_update(field_var, value):
     update_char()
 
 def generate_map(lat, lon, ip):
-    """Generate Folium map HTML"""
+    """Generate Folium map HTML and load it in embedded browser"""
     m = folium.Map(location=[lat, lon], zoom_start=8)
     folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
     m.save(MAP_FILE)
 
-    # Load updated map in embedded browser
-    map_frame.load_file(MAP_FILE)
+    # Load updated map in embedded browser (use absolute path!)
+    map_frame.load_file(os.path.abspath(MAP_FILE))
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
