@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox
-from tkinterweb import HtmlFrame  # <- embedded browser
+from tkinterweb import HtmlFrame
 import ipaddress
 import geoip2.database
 import folium
@@ -33,13 +33,39 @@ def animate_field_update(field_var, value):
             root.after(50, update_char, i+1)
     update_char()
 
-def generate_map(lat, lon, ip):
-    """Generate Folium map HTML and load it in embedded browser"""
-    m = folium.Map(location=[lat, lon], zoom_start=8)
-    folium.Marker([lat, lon], tooltip=f"IP: {ip}", popup=f"IP: {ip}").add_to(m)
-    m.save(MAP_FILE)
+# Keep track of all IP locations
+ip_history = []
 
-    # Load updated map in embedded browser (use absolute path!)
+# ---------------- MAP FUNCTIONS ---------------- #
+def generate_map(lat, lon, ip, city="", region="", country=""):
+    """Generate Folium map HTML with history markers and smooth pan"""
+    global ip_history
+
+    # Add latest IP to history
+    ip_history.append({
+        "lat": lat,
+        "lon": lon,
+        "ip": ip,
+        "city": city,
+        "region": region,
+        "country": country
+    })
+
+    # Create map centered at latest IP
+    m = folium.Map(location=[lat, lon], zoom_start=5)
+
+    # Add all previous markers
+    for idx, info in enumerate(ip_history):
+        color = "red" if idx == len(ip_history)-1 else "blue"  # latest in red
+        folium.Marker(
+            [info["lat"], info["lon"]],
+            tooltip=f'IP: {info["ip"]}',
+            popup=f'{info["ip"]} - {info["city"]}, {info["region"]}, {info["country"]}',
+            icon=folium.Icon(color=color)
+        ).add_to(m)
+
+    # Save and load map
+    m.save(MAP_FILE)
     map_frame.load_file(os.path.abspath(MAP_FILE))
 
 # ---------------- IP LOOKUP ---------------- #
@@ -58,16 +84,22 @@ def lookup_ip_thread():
         response = reader.city(ip)
         reader.close()
 
+        country = response.country.name or "N/A"
+        region = response.subdivisions.most_specific.name or "N/A"
+        city = response.city.name or "N/A"
+        postal = response.postal.code or "N/A"
+        latitude = response.location.latitude or 0
+        longitude = response.location.longitude or 0
+
         # Animate updates for all fields
         for var, val in zip(
             [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
-            [response.country.name, response.subdivisions.most_specific.name, response.city.name,
-             response.postal.code, str(response.location.latitude), str(response.location.longitude)]
+            [country, region, city, postal, str(latitude), str(longitude)]
         ):
-            animate_field_update(var, val or "N/A")
+            animate_field_update(var, val)
 
-        # Refresh map inside GUI
-        generate_map(response.location.latitude, response.location.longitude, ip)
+        # Update map with history
+        generate_map(latitude, longitude, ip, city, region, country)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to lookup IP:\n{e}")
@@ -174,7 +206,7 @@ map_frame = HtmlFrame(map_panel, horizontal_scrollbar="auto")
 map_frame.pack(fill="both", expand=True)
 
 # ---------- Footer ---------- #
-footer_label = ctk.CTkLabel(main_frame, text="Modern AI Offline IP Tracker", text_color="#3a86ff")
+footer_label = ctk.CTkLabel(main_frame, text="Modern AI IP Tracker with History", text_color="#3a86ff")
 footer_label.pack(pady=10)
 
 # ---------- Start GUI ---------- #
