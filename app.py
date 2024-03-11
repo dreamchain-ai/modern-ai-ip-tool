@@ -8,6 +8,7 @@ import socket
 import threading
 import os
 import requests
+import time
 
 # ---------------- CONFIG ---------------- #
 DATABASE_PATH = "GeoLite2-City.mmdb"
@@ -38,7 +39,7 @@ ip_history = []
 
 # ---------------- MAP FUNCTIONS ---------------- #
 def generate_map(lat, lon, ip, city="", region="", country=""):
-    """Generate Folium map HTML with history markers and smooth pan"""
+    """Generate Folium map HTML with history markers and load in HtmlFrame reliably"""
     global ip_history
 
     # Add latest IP to history
@@ -56,7 +57,7 @@ def generate_map(lat, lon, ip, city="", region="", country=""):
 
     # Add all previous markers
     for idx, info in enumerate(ip_history):
-        color = "red" if idx == len(ip_history)-1 else "blue"  # latest in red
+        color = "red" if idx == len(ip_history)-1 else "blue"
         folium.Marker(
             [info["lat"], info["lon"]],
             tooltip=f'IP: {info["ip"]}',
@@ -64,9 +65,15 @@ def generate_map(lat, lon, ip, city="", region="", country=""):
             icon=folium.Icon(color=color)
         ).add_to(m)
 
-    # Save and load map
-    m.save(MAP_FILE)
-    map_frame.load_file(os.path.abspath(MAP_FILE))
+    # Save map
+    abs_path = os.path.abspath(MAP_FILE)
+    m.save(abs_path)
+
+    # Convert Windows path to file:// URL
+    url_path = "file:///" + abs_path.replace("\\", "/")
+
+    # Load map after short delay to ensure HtmlFrame is ready
+    root.after(50, lambda: map_frame.load_website(url_path))
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -141,7 +148,7 @@ def toggle_theme():
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
-root.title("Modern AI IP Tracker")
+root.title("Modern AI IP Tracker with History")
 root.geometry("1000x900")
 
 # ---------- Main Frame ---------- #
