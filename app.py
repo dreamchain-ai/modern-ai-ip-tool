@@ -96,7 +96,7 @@ def toggle_theme():
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
 root.title("Modern AI IP Tracker with Browser Map")
-root.geometry("1000x850")
+root.geometry("1000x550")
 
 # ---------- Main Frame ---------- #
 main_frame = ctk.CTkFrame(root, corner_radius=15)
@@ -108,7 +108,7 @@ top_bar1.pack(fill="x", pady=(10,5), padx=10)
 
 ctk.CTkLabel(top_bar1, text="IP Address:").pack(side="left", padx=(10,5))
 ip_entry = ctk.CTkEntry(top_bar1, width=250)
-ip_entry.pack(side="left", padx=(0,10))
+ip_entry.pack(side="left", padx=(0,10), fill="x", expand=True)
 
 detect_btn = ctk.CTkButton(top_bar1, text="Detect My IP", command=detect_my_ip, width=120, fg_color="#1f6aa5", hover_color="#3a86ff")
 detect_btn.pack(side="left", padx=5)
@@ -116,10 +116,7 @@ detect_btn.pack(side="left", padx=5)
 lookup_btn = ctk.CTkButton(top_bar1, text="Check IP", command=lookup_ip, width=100, fg_color="#1f6aa5", hover_color="#3a86ff")
 lookup_btn.pack(side="left", padx=5)
 
-top_bar2 = ctk.CTkFrame(main_frame, corner_radius=10)
-top_bar2.pack(fill="x", pady=(0,10), padx=10)
-
-theme_btn = ctk.CTkButton(top_bar2, text="Toggle Theme", command=toggle_theme, width=120)
+theme_btn = ctk.CTkButton(top_bar1, text="Toggle Theme", command=toggle_theme, width=120)
 theme_btn.pack(side="left", padx=5)
 
 # ---------- Loading Label ---------- #

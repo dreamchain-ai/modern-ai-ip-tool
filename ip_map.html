@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_7b07ad285f69f7ff89d0f87499aee7da {
+                #map_44a724082db116892d308bcaec9cc811 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -54,14 +54,14 @@
 <body>
     
     
-            <div class="folium-map" id="map_7b07ad285f69f7ff89d0f87499aee7da" ></div>
+            <div class="folium-map" id="map_44a724082db116892d308bcaec9cc811" ></div>
         
 </body>
 <script>
     
     
-            var map_7b07ad285f69f7ff89d0f87499aee7da = L.map(
-                "map_7b07ad285f69f7ff89d0f87499aee7da",
+            var map_44a724082db116892d308bcaec9cc811 = L.map(
+                "map_44a724082db116892d308bcaec9cc811",
                 {
                     center: [47.394, 8.445],
                     crs: L.CRS.EPSG3857,
@@ -78,7 +78,7 @@
 
         
     
-            var tile_layer_d62d84d725efe266d37ce21558fd73cf = L.tileLayer(
+            var tile_layer_278f5dddff8b9affefee94221af9f9b4 = L.tileLayer(
                 "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
   "minZoom": 0,
@@ -95,17 +95,65 @@
             );
         
     
-            tile_layer_d62d84d725efe266d37ce21558fd73cf.addTo(map_7b07ad285f69f7ff89d0f87499aee7da);
+            tile_layer_278f5dddff8b9affefee94221af9f9b4.addTo(map_44a724082db116892d308bcaec9cc811);
         
     
-            var marker_28bb851cd2b8f01c26f9791bf88e431f = L.marker(
+            var marker_3d1847b581605ba43e006a72110f8776 = L.marker(
                 [47.394, 8.445],
                 {
 }
-            ).addTo(map_7b07ad285f69f7ff89d0f87499aee7da);
+            ).addTo(map_44a724082db116892d308bcaec9cc811);
         
     
-            var icon_3ab894bfd097b1a13172643edce2c275 = L.AwesomeMarkers.icon(
+            var icon_475e8eab3fd376f4d3c098ce93e92eb9 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "info-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_3f6b78c4bf92b7913f40c380ebe324f7 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_c660d544781827e1e1f8024d4cea8268 = $(`<div id="html_c660d544781827e1e1f8024d4cea8268" style="width: 100.0%; height: 100.0%;">185.183.104.67 - Zurich, Zurich, Switzerland</div>`)[0];
+                popup_3f6b78c4bf92b7913f40c380ebe324f7.setContent(html_c660d544781827e1e1f8024d4cea8268);
+            
+        
+
+        marker_3d1847b581605ba43e006a72110f8776.bindPopup(popup_3f6b78c4bf92b7913f40c380ebe324f7)
+        ;
+
+        
+    
+    
+            marker_3d1847b581605ba43e006a72110f8776.bindTooltip(
+                `<div>
+                     IP: 185.183.104.67
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3d1847b581605ba43e006a72110f8776.setIcon(icon_475e8eab3fd376f4d3c098ce93e92eb9);
+            
+    
+            var marker_672b6b6c81f5ad145e401adec8c44582 = L.marker(
+                [47.394, 8.445],
+                {
+}
+            ).addTo(map_44a724082db116892d308bcaec9cc811);
+        
+    
+            var icon_c7a44a1041c32a51292970ac11f14e72 = L.AwesomeMarkers.icon(
                 {
   "markerColor": "red",
   "iconColor": "white",
@@ -116,24 +164,24 @@
             );
         
     
-        var popup_8b0567888ecaba9fb48a86186462ecfa = L.popup({
+        var popup_d5ece0f31887415458bb7af9e7612798 = L.popup({
   "maxWidth": "100%",
 });
 
         
             
-                var html_312039ef8d199431e403301c1e84201d = $(`<div id="html_312039ef8d199431e403301c1e84201d" style="width: 100.0%; height: 100.0%;">185.183.104.67 - Zurich, Zurich, Switzerland</div>`)[0];
-                popup_8b0567888ecaba9fb48a86186462ecfa.setContent(html_312039ef8d199431e403301c1e84201d);
+                var html_db6d6a1228cba92464833ce5248249b2 = $(`<div id="html_db6d6a1228cba92464833ce5248249b2" style="width: 100.0%; height: 100.0%;">185.183.104.67 - Zurich, Zurich, Switzerland</div>`)[0];
+                popup_d5ece0f31887415458bb7af9e7612798.setContent(html_db6d6a1228cba92464833ce5248249b2);
             
         
 
-        marker_28bb851cd2b8f01c26f9791bf88e431f.bindPopup(popup_8b0567888ecaba9fb48a86186462ecfa)
+        marker_672b6b6c81f5ad145e401adec8c44582.bindPopup(popup_d5ece0f31887415458bb7af9e7612798)
         ;
 
         
     
     
-            marker_28bb851cd2b8f01c26f9791bf88e431f.bindTooltip(
+            marker_672b6b6c81f5ad145e401adec8c44582.bindTooltip(
                 `<div>
                      IP: 185.183.104.67
                  </div>`,
@@ -143,7 +191,7 @@
             );
         
     
-                marker_28bb851cd2b8f01c26f9791bf88e431f.setIcon(icon_3ab894bfd097b1a13172643edce2c275);
+                marker_672b6b6c81f5ad145e401adec8c44582.setIcon(icon_c7a44a1041c32a51292970ac11f14e72);
             
 </script>
 </html>
