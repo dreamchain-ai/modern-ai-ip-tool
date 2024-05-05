@@ -7,7 +7,7 @@ import requests
 import time
 
 from src.config import DATABASE_PATH
-from src.ip_utils import validate_ip
+from src.ip_utils import validate_ip, get_proxy_vpn_info
 from src.map_utils import generate_map
 
 ctk.set_appearance_mode("Dark")
@@ -45,10 +45,30 @@ def lookup_ip_thread():
         latitude = response.location.latitude or 0
         longitude = response.location.longitude or 0
 
+        privacy = get_proxy_vpn_info(ip)
+        vpn = privacy.get("vpn")
+        proxy = privacy.get("proxy")
+        tor = privacy.get("tor")
+        hosting = privacy.get("hosting")
+
+        if any(v is True for v in (vpn, proxy, tor)):
+            vpn_proxy_text = "Yes"
+        elif all(v is False for v in (v for v in (vpn, proxy, tor) if v is not None)):
+            vpn_proxy_text = "No"
+        else:
+            vpn_proxy_text = "Unknown"
+
+        if hosting is True:
+            connection_type_text = "Hosting / Datacenter"
+        elif hosting is False:
+            connection_type_text = "Residential / Consumer"
+        else:
+            connection_type_text = "Unknown"
+
         # Animate updates for all fields
         for var, val in zip(
-            [country_var, region_var, city_var, postal_var, latitude_var, longitude_var],
-            [country, region, city, postal, str(latitude), str(longitude)]
+            [country_var, region_var, city_var, postal_var, latitude_var, longitude_var, connection_type_var, vpn_proxy_var],
+            [country, region, city, postal, str(latitude), str(longitude), connection_type_text, vpn_proxy_text]
         ):
             animate_field_update(var, val)
 
@@ -133,6 +153,8 @@ city_var = ctk.StringVar()
 postal_var = ctk.StringVar()
 latitude_var = ctk.StringVar()
 longitude_var = ctk.StringVar()
+connection_type_var = ctk.StringVar()
+vpn_proxy_var = ctk.StringVar()
 
 fields = [
     ("Country", country_var),
@@ -141,6 +163,8 @@ fields = [
     ("Postal Code", postal_var),
     ("Latitude", latitude_var),
     ("Longitude", longitude_var),
+    ("Connection Type", connection_type_var),
+    ("VPN / Proxy", vpn_proxy_var),
 ]
 
 for label, var in fields:
