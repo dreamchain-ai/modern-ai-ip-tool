@@ -51,9 +51,12 @@ def lookup_ip_thread():
         tor = privacy.get("tor")
         hosting = privacy.get("hosting")
 
-        if any(v is True for v in (vpn, proxy, tor)):
+        flags = [v for v in (vpn, proxy, tor, hosting) if v is not None]
+        has_any_flag = len(flags) > 0
+
+        if any(flags):
             vpn_proxy_text = "Yes"
-        elif all(v is False for v in (v for v in (vpn, proxy, tor) if v is not None)):
+        elif has_any_flag and all(v is False for v in flags):
             vpn_proxy_text = "No"
         else:
             vpn_proxy_text = "Unknown"
