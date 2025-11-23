@@ -6,6 +6,7 @@ Built with **Python** and **CustomTkinter**, this tool lets you:
 - Validate IPv4 addresses
 - Detect your own public IP
 - Look up GeoIP information (country, region, city, postal code, coordinates)
+- Detect whether an IP is likely using VPN / proxy / Tor or is hosted in a data center (via IPinfo privacy API)
 - Open an interactive map in your browser centered on the IP location
 
 The UI mimics a modern "AI app" aesthetic with dark/light themes and smooth field updates.
@@ -43,7 +44,7 @@ Key files and folders:
 
 - `app.py` – Main GUI application.
 - `src/config.py` – Shared configuration, including GeoIP database path.
-- `src/ip_utils.py` – IP validation helpers.
+- `src/ip_utils.py` – IP validation helpers and proxy/VPN/hosting detection.
 - `src/map_utils.py` – Map generation (e.g. writing `ip_map.html` and opening it in a browser).
 - `db/` – Expected location of the GeoIP2 database file.
 - `ip_map.html` – Generated map file (overwritten on each lookup).
@@ -83,6 +84,36 @@ If you are using a virtual environment, make sure it is activated before install
    ```
 
 4. Without this file, lookups will fail with an error when `geoip2.database.Reader` is used.
+
+---
+
+## Proxy / VPN / Hosting Detection (IPinfo)
+
+The app can optionally query the [IPinfo](https://ipinfo.io) **privacy API** to detect whether an IP address is:
+
+- Associated with a **VPN**
+- Using a **proxy**
+- A **Tor** endpoint
+- A **hosting / data center** IP
+
+This information is shown in the UI as:
+
+- A **VPN / Proxy** flag ("Yes", "No", or "Unknown")
+- A **Connection Type** flag ("Hosting / Datacenter", "Residential / Consumer", or "Unknown")
+
+### Configuration
+
+1. Create a free or paid IPinfo account and obtain an API token.
+2. Set the `IPINFO_TOKEN` environment variable before running the app, for example:
+
+   ```bash
+   # Windows (PowerShell)
+   $env:IPINFO_TOKEN="YOUR_IPINFO_TOKEN_HERE"
+   ```
+
+3. Start the app normally (`python app.py`).
+
+If `IPINFO_TOKEN` is **not** set or the IPinfo request fails, the app will still work, but the VPN/proxy/hosting fields will show as `Unknown`.
 
 ---
 
