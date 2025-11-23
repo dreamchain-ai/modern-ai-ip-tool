@@ -1,13 +1,13 @@
 import customtkinter as ctk
 from tkinter import messagebox
-from tkinterweb import HtmlFrame
 import ipaddress
 import geoip2.database
 import folium
 import socket
 import threading
-import os
 import requests
+import os
+import webbrowser
 import time
 
 # ---------------- CONFIG ---------------- #
@@ -37,9 +37,9 @@ def animate_field_update(field_var, value):
 # Keep track of all IP locations
 ip_history = []
 
-# ---------------- MAP FUNCTIONS ---------------- #
+# ---------------- MAP FUNCTION ---------------- #
 def generate_map(lat, lon, ip, city="", region="", country=""):
-    """Generate Folium map HTML with history markers and load in HtmlFrame reliably"""
+    """Generate Folium map and open in default browser"""
     global ip_history
 
     # Add latest IP to history
@@ -52,7 +52,7 @@ def generate_map(lat, lon, ip, city="", region="", country=""):
         "country": country
     })
 
-    # Create map centered at latest IP
+    # Create Folium map centered at latest IP
     m = folium.Map(location=[lat, lon], zoom_start=5)
 
     # Add all previous markers
@@ -69,11 +69,9 @@ def generate_map(lat, lon, ip, city="", region="", country=""):
     abs_path = os.path.abspath(MAP_FILE)
     m.save(abs_path)
 
-    # Convert Windows path to file:// URL
-    url_path = "file:///" + abs_path.replace("\\", "/")
+    # Open map in default browser
+    webbrowser.open(f"file:///{abs_path.replace(os.sep, '/')}")
 
-    # Load map after short delay to ensure HtmlFrame is ready
-    root.after(50, lambda: map_frame.load_website(url_path))
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -105,7 +103,7 @@ def lookup_ip_thread():
         ):
             animate_field_update(var, val)
 
-        # Update map with history
+        # Update and open map in browser
         generate_map(latitude, longitude, ip, city, region, country)
 
     except Exception as e:
@@ -119,7 +117,7 @@ def lookup_ip():
 # ---------------- DETECT PUBLIC IP ---------------- #
 def detect_my_ip():
     loading_label.configure(text="Detecting public IP...")
-    
+
     def detect_thread():
         try:
             try:
@@ -148,8 +146,8 @@ def toggle_theme():
 
 # ---------------- GUI ---------------- #
 root = ctk.CTk()
-root.title("Modern AI IP Tracker with History")
-root.geometry("1000x900")
+root.title("Modern AI IP Tracker with Browser Map")
+root.geometry("1000x850")
 
 # ---------- Main Frame ---------- #
 main_frame = ctk.CTkFrame(root, corner_radius=15)
@@ -205,15 +203,8 @@ for label, var in fields:
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
 
-# ---------- Map Panel ---------- #
-map_panel = ctk.CTkFrame(main_frame, corner_radius=10)
-map_panel.pack(fill="both", expand=True, padx=20, pady=15)
-
-map_frame = HtmlFrame(map_panel, horizontal_scrollbar="auto")
-map_frame.pack(fill="both", expand=True)
-
 # ---------- Footer ---------- #
-footer_label = ctk.CTkLabel(main_frame, text="Modern AI IP Tracker with History", text_color="#3a86ff")
+footer_label = ctk.CTkLabel(main_frame, text="Modern AI IP Tracker (Browser Map)", text_color="#3a86ff")
 footer_label.pack(pady=10)
 
 # ---------- Start GUI ---------- #
