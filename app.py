@@ -1,29 +1,17 @@
 import customtkinter as ctk
 from tkinter import messagebox
-import ipaddress
 import geoip2.database
-import folium
 import socket
 import threading
 import requests
-import os
-import webbrowser
 import time
 
-# ---------------- CONFIG ---------------- #
-DATABASE_PATH = "GeoLite2-City.mmdb"
-MAP_FILE = "ip_map.html"
+from src.config import DATABASE_PATH
+from src.ip_utils import validate_ip
+from src.map_utils import generate_map
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
-
-# ---------------- FUNCTIONS ---------------- #
-def validate_ip(ip):
-    try:
-        ipaddress.ip_address(ip)
-        return True
-    except ValueError:
-        return False
 
 def animate_field_update(field_var, value):
     """Animate text typing in entry field"""
@@ -33,45 +21,6 @@ def animate_field_update(field_var, value):
             field_var.set(value[:i])
             root.after(50, update_char, i+1)
     update_char()
-
-# Keep track of all IP locations
-ip_history = []
-
-# ---------------- MAP FUNCTION ---------------- #
-def generate_map(lat, lon, ip, city="", region="", country=""):
-    """Generate Folium map and open in default browser"""
-    global ip_history
-
-    # Add latest IP to history
-    ip_history.append({
-        "lat": lat,
-        "lon": lon,
-        "ip": ip,
-        "city": city,
-        "region": region,
-        "country": country
-    })
-
-    # Create Folium map centered at latest IP
-    m = folium.Map(location=[lat, lon], zoom_start=5)
-
-    # Add all previous markers
-    for idx, info in enumerate(ip_history):
-        color = "red" if idx == len(ip_history)-1 else "blue"
-        folium.Marker(
-            [info["lat"], info["lon"]],
-            tooltip=f'IP: {info["ip"]}',
-            popup=f'{info["ip"]} - {info["city"]}, {info["region"]}, {info["country"]}',
-            icon=folium.Icon(color=color)
-        ).add_to(m)
-
-    # Save map
-    abs_path = os.path.abspath(MAP_FILE)
-    m.save(abs_path)
-
-    # Open map in default browser
-    webbrowser.open(f"file:///{abs_path.replace(os.sep, '/')}")
-
 
 # ---------------- IP LOOKUP ---------------- #
 def lookup_ip_thread():
@@ -178,7 +127,7 @@ loading_label = ctk.CTkLabel(main_frame, text="", text_color="orange")
 loading_label.pack(pady=5)
 
 # ---------- Info Panel ---------- #
-info_panel = ctk.CTkFrame(main_frame, corner_radius=15, fg_color="#1f1f2e", border_width=1, border_color="#3a86ff")
+info_panel = ctk.CTkFrame(main_frame, corner_radius=15)
 info_panel.pack(fill="x", padx=20, pady=15)
 
 country_var = ctk.StringVar()
@@ -198,7 +147,7 @@ fields = [
 ]
 
 for label, var in fields:
-    row = ctk.CTkFrame(info_panel, corner_radius=10, fg_color="#2a2a3d")
+    row = ctk.CTkFrame(info_panel, corner_radius=10)
     row.pack(fill="x", pady=5, padx=10)
     ctk.CTkLabel(row, text=f"{label}: ", width=120, anchor="w").pack(side="left")
     ctk.CTkEntry(row, textvariable=var, state="readonly").pack(side="left", fill="x", expand=True)
